@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style.css" />
+    <title>Chỉnh ảnh</title>
+  </head>
+  <body>
+    <input type="file" id="imageInput" accept="image/*" />
+    <br /><br />
+    <canvas id="canvas1" style="display: none"></canvas>
+    <canvas id="canvas2" style="display: none"></canvas>
+    <button id="removeWhiteBG" class="tools">Xóa nền trắng</button>
+    <button id="edit" class="tools">làm nét ảnh</button>
+    <button id="start">start</button>
+    <img id="resultImage" style="max-width: 400px; display: none" /><br /><br />
+    <a id="downLoadLink" style="display: none" download="transparent.png"
+      >Tải ảnh PNG có nền trong suốt</a
+    >
+  </body>
+  <script src="script.js"></script>
+</html>

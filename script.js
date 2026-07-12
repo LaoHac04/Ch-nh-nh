@@ -15,6 +15,7 @@ const downLoadLink = document.getElementById("downLoadLink"); // link để down
 const blabla = 1;
 const bro = 2;
 const bruh = 3;
+const hehe = 4;
 
 let imageResult = null;
 

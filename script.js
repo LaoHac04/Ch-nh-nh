@@ -14,6 +14,7 @@ const downLoadLink = document.getElementById("downLoadLink"); // link để down
 
 const blabla = 1;
 const bro = 2;
+const bruh = 3;
 
 let imageResult = null;
 
@@ -78,7 +79,7 @@ imageInput.addEventListener("input", function (e) {
       const maxDisplaySize = Math.min(window.innerWidth * 0.6, 500);
       const displayScale = Math.min(
         maxDisplaySize / imgWidth,
-        maxDisplaySize / imgHeight
+        maxDisplaySize / imgHeight,
       );
       newWidth = imgWidth;
       newHeight = imgHeight;
@@ -102,7 +103,7 @@ imageInput.addEventListener("input", function (e) {
         offSetX,
         offSetY,
         imgWidth * displayScale,
-        imgHeight * displayScale
+        imgHeight * displayScale,
       );
       canvas.style.display = "block";
 
@@ -224,7 +225,7 @@ function reMoveWhiteBG() {
     0,
     0,
     newCanVas.width,
-    newCanVas.height
+    newCanVas.height,
   );
   const { data, width, height } = imageData;
 
@@ -237,7 +238,7 @@ function reMoveWhiteBG() {
 
     // Tính độ khác biệt với màu trắng
     let diff = Math.sqrt(
-      Math.pow(255 - r, 2) + Math.pow(255 - g, 2) + Math.pow(255 - b, 2)
+      Math.pow(255 - r, 2) + Math.pow(255 - g, 2) + Math.pow(255 - b, 2),
     );
 
     // Nếu gần trắng thì xóa (ngưỡng có thể chỉnh 80–100)
@@ -281,7 +282,7 @@ function editImage() {
     0,
     0,
     newCanVas.width,
-    newCanVas.height
+    newCanVas.height,
   );
   const data = imageData.data;
 
@@ -388,7 +389,7 @@ function gaussianBlur() {
     Math.floor(offSetX),
     Math.floor(offSetY),
     Math.floor(newWidth),
-    Math.floor(newHeight)
+    Math.floor(newHeight),
   );
   const data = imageData.data;
 
@@ -427,7 +428,7 @@ function gaussianBlur() {
     Math.floor(offSetX),
     Math.floor(offSetY),
     Math.floor(newWidth),
-    Math.floor(newHeight)
+    Math.floor(newHeight),
   );
 }
 
@@ -437,7 +438,7 @@ function unsharpMask(amount = 1) {
     Math.floor(offSetX),
     Math.floor(offSetY),
     Math.floor(newWidth),
-    Math.floor(newHeight)
+    Math.floor(newHeight),
   );
   const data = imageData.data;
   const blur = gaussianBlur();
@@ -456,12 +457,12 @@ function unsharpMask(amount = 1) {
   const sharpenedImageData = new ImageData(
     result,
     Math.floor(newWidth),
-    Math.floor(newHeight)
+    Math.floor(newHeight),
   );
   ctxNew.putImageData(
     sharpenedImageData,
     Math.floor(offSetX),
-    Math.floor(offSetY)
+    Math.floor(offSetY),
   );
   newCanVas.style.display = "block";
 }

@@ -12,6 +12,8 @@ const unSharpMask_button = document.getElementById("unSharpMask"); // nút chỉ
 const startButton = document.getElementById("start"); // nút bắt đầu
 const downLoadLink = document.getElementById("downLoadLink"); // link để download ảnh
 
+const blabla = 1;
+
 let imageResult = null;
 
 let choose = null;

@@ -13,6 +13,7 @@ const startButton = document.getElementById("start"); // nút bắt đầu
 const downLoadLink = document.getElementById("downLoadLink"); // link để download ảnh
 
 const blabla = 1;
+const bro = 2;
 
 let imageResult = null;
 

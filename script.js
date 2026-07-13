@@ -18,6 +18,7 @@ const bruh = 3;
 const hehe = 4;
 const haha = 5;
 const het = 6;
+const final = 7;
 
 let imageResult = null;
 

@@ -12,6 +12,10 @@ const unSharpMask_button = document.getElementById("unSharpMask"); // nút chỉ
 const startButton = document.getElementById("start"); // nút bắt đầu
 const downLoadLink = document.getElementById("downLoadLink"); // link để download ảnh
 
+const button = document.getElementById("submit-btn");
+const input = document.getElementById("username");
+const messageBox = document.getElementById("response-message");
+
 const blabla = 1;
 const bro = 2;
 const bruh = 3;
@@ -31,6 +35,36 @@ let newHeight;
 
 let offSetX;
 let offSetY;
+
+button.addEventListener("click", async () => {
+  const nameInput = input.value;
+
+  if (!nameInput) {
+    alert("Vui lòng nhập tên trước khi gửi!");
+    return;
+  }
+
+  try {
+    // Gửi dữ liệu lên Node.js bằng phương thức POST
+    const response = await fetch("/api/submit-name", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: nameInput }), // Chuyển dữ liệu thành chuỗi JSON
+    });
+
+    // Nhận phản hồi động từ Server trả về
+    const result = await response.json();
+
+    // Hiển thị câu chào động lên màn hình HTML
+    messageBox.innerText = result.message;
+  } catch (error) {
+    console.error("Lỗi khi kết nối với server:", error);
+    messageBox.innerText = "Không thể kết nối đến Server.";
+  }
+});
+
 // input 1
 /*imageInput.addEventListener("input", function (e) {
   downLoadLink.style.display = "none";

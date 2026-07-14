@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
   <head>
     <meta charset="UTF-8" />
@@ -19,6 +19,14 @@
     <a id="downLoadLink" style="display: none" download="transparent.png"
       >Tải ảnh PNG có nền trong suốt</a
     >
+    <div class="form-container">
+      <h3>Nhập tên của bạn để hệ thống lưu trữ:</h3>
+      <input type="text" id="username" placeholder="Nhập tên tại đây..." />
+      <button id="submit-btn">Gửi lên Server</button>
+
+      <!-- Nơi hiển thị kết quả động từ Server trả về -->
+      <p id="response-message" style="color: green; font-weight: bold"></p>
+    </div>
   </body>
   <script src="script.js"></script>
 </html>

@@ -19,7 +19,6 @@ const messageBox = document.getElementById("response-message");
 const blabla = 1;
 const bro = 2;
 const bruh = 3;
-const hehe = 4;
 
 let imageResult = null;
 

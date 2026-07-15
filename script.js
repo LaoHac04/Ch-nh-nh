@@ -20,7 +20,6 @@ const blabla = 1;
 const bro = 2;
 const bruh = 3;
 const hehe = 4;
-const haha = 5;
 
 let imageResult = null;
 

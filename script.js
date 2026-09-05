@@ -16,10 +16,6 @@ const button = document.getElementById("submit-btn");
 const input = document.getElementById("username");
 const messageBox = document.getElementById("response-message");
 
-const blabla = 1;
-const bro = 2;
-const bruh = 3;
-
 let imageResult = null;
 
 let choose = null;

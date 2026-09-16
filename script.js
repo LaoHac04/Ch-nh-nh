@@ -1,537 +1,1011 @@
+// ============================================================
+// IMAGE EDITOR - BẢN SỬA LẠI
+// Giữ nguyên các ID HTML hiện tại:
+// canvas1, canvas2, imageInput, removeWhiteBG,
+// edit, unSharpMask, start, downLoadLink,
+// submit-btn, username, response-message
+// ============================================================
+
 const canvas = document.getElementById("canvas1");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", {
+  willReadFrequently: true,
+});
+
 const newCanVas = document.getElementById("canvas2");
-const ctxNew = newCanVas.getContext("2d");
+const ctxNew = newCanVas.getContext("2d", {
+  willReadFrequently: true,
+});
 
 const imageInput = document.getElementById("imageInput");
 
-const removeWhiteBG_button = document.getElementById("removeWhiteBG"); // nút xóa nền trắng
-const editButton = document.getElementById("edit"); // nút chỉnh ảnh thường
-const unSharpMask_button = document.getElementById("unSharpMask"); // nút chỉnh ảnh vip bằng unsharpmask
+const removeWhiteBG_button = document.getElementById("removeWhiteBG");
 
-const startButton = document.getElementById("start"); // nút bắt đầu
-const downLoadLink = document.getElementById("downLoadLink"); // link để download ảnh
+const editButton = document.getElementById("edit");
+
+const unSharpMask_button = document.getElementById("unSharpMask");
+
+const startButton = document.getElementById("start");
+
+const downLoadLink = document.getElementById("downLoadLink");
 
 const button = document.getElementById("submit-btn");
+
 const input = document.getElementById("username");
+
 const messageBox = document.getElementById("response-message");
 
-let imageResult = null;
+// ============================================================
+// STATE
+// ============================================================
 
+let imageResult = null;
 let choose = null;
 
-let Avg;
-let imgWidth;
-let imgHeight;
-let newWidth;
-let newHeight;
+let imgWidth = 0;
+let imgHeight = 0;
+let displayScale = 1;
 
-let offSetX;
-let offSetY;
+// ============================================================
+// SUBMIT NAME
+// Giữ lại chức năng cũ
+// ============================================================
 
-button.addEventListener("click", async () => {
-  const nameInput = input.value;
+if (button) {
+  button.addEventListener("click", async () => {
+    const nameInput = input.value.trim();
 
-  if (!nameInput) {
-    alert("Vui lòng nhập tên trước khi gửi!");
+    if (!nameInput) {
+      alert("Vui lòng nhập tên trước khi gửi!");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/submit-name", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: nameInput,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (messageBox) {
+        messageBox.innerText = result.message;
+      }
+    } catch (error) {
+      console.error("Lỗi khi kết nối với server:", error);
+
+      if (messageBox) {
+        messageBox.innerText = "Không thể kết nối đến Server.";
+      }
+    }
+  });
+}
+
+// ============================================================
+// LOAD IMAGE
+// ============================================================
+
+imageInput.addEventListener("change", function (e) {
+  const file = e.target.files?.[0];
+
+  if (!file) {
     return;
   }
 
-  try {
-    // Gửi dữ liệu lên Node.js bằng phương thức POST
-    const response = await fetch("/api/submit-name", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: nameInput }), // Chuyển dữ liệu thành chuỗi JSON
-    });
+  // Reset
+  imageResult = null;
+  choose = null;
 
-    // Nhận phản hồi động từ Server trả về
-    const result = await response.json();
-
-    // Hiển thị câu chào động lên màn hình HTML
-    messageBox.innerText = result.message;
-  } catch (error) {
-    console.error("Lỗi khi kết nối với server:", error);
-    messageBox.innerText = "Không thể kết nối đến Server.";
-  }
-});
-
-// input 1
-/*imageInput.addEventListener("input", function (e) {
   downLoadLink.style.display = "none";
   newCanVas.style.display = "none";
 
-  const file = e.target.files[0];
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const img = new Image();
-    img.onload = function () {
-      imgWidth = img.width;
-      imgHeight = img.height;
-      canvas.width = 500;
-      canvas.height = 500;
-      newCanVas.width = 500;
-      newCanVas.height = 500;
-      Avg = Math.min(500 / img.width, 500 / img.height);
-      newWidth = img.width * Avg;
-      newHeight = img.height * Avg;
-      offSetX = (canvas.width - newWidth) / 2;
-      offSetY = (canvas.height - newHeight) / 2;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, offSetX, offSetY, newWidth, newHeight);
-      canvas.style.display = "block";
-    };
-    img.src = e.target.result;
-    imageResult = img;
-  };
-  reader.readAsDataURL(file);
-});*/
-
-// input 2
-imageInput.addEventListener("input", function (e) {
-  downLoadLink.style.display = "none";
-  newCanVas.style.display = "none";
-
-  const file = e.target.files[0];
   const reader = new FileReader();
 
-  reader.onload = function (e) {
+  reader.onload = function (event) {
     const img = new Image();
-    img.onload = function () {
-      // Kích thước gốc ảnh
-      imgWidth = img.width;
-      imgHeight = img.height;
 
-      // Tính tỉ lệ hiển thị vừa màn hình (ví dụ khung 500x500)
-      const maxDisplaySize = Math.min(window.innerWidth * 0.6, 500);
-      const displayScale = Math.min(
+    img.onload = function () {
+      imageResult = img;
+
+      imgWidth = img.naturalWidth;
+      imgHeight = img.naturalHeight;
+
+      // --------------------------------------------------------
+      // CANVAS HIỂN THỊ
+      // Chỉ dùng để preview.
+      // Không dùng canvas1 để xử lý ảnh.
+      // --------------------------------------------------------
+
+      const maxDisplaySize = Math.min(window.innerWidth * 0.6, 700);
+
+      displayScale = Math.min(
         maxDisplaySize / imgWidth,
         maxDisplaySize / imgHeight,
+        1,
       );
-      newWidth = imgWidth;
-      newHeight = imgHeight;
 
-      // Canvas hiển thị (canvas chính)
-      canvas.width = imgWidth * displayScale;
-      canvas.height = imgHeight * displayScale;
+      canvas.width = Math.max(1, Math.round(imgWidth * displayScale));
 
-      // Canvas xử lý nền (canvas xuất file) — giữ kích thước gốc
+      canvas.height = Math.max(1, Math.round(imgHeight * displayScale));
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.style.display = "block";
+
+      // --------------------------------------------------------
+      // CANVAS XỬ LÝ
+      // LUÔN giữ nguyên kích thước ảnh gốc.
+      // --------------------------------------------------------
+
       newCanVas.width = imgWidth;
       newCanVas.height = imgHeight;
 
-      // Căn giữa hình hiển thị
-      offSetX = (canvas.width - imgWidth * displayScale) / 2;
-      offSetY = (canvas.height - imgHeight * displayScale) / 2;
+      ctxNew.clearRect(0, 0, imgWidth, imgHeight);
 
-      // Vẽ ảnh vừa khung hiển thị
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(
-        img,
-        offSetX,
-        offSetY,
-        imgWidth * displayScale,
-        imgHeight * displayScale,
-      );
-      canvas.style.display = "block";
+      ctxNew.imageSmoothingEnabled = false;
 
-      imageResult = img; // Lưu ảnh gốc để xử lý nền
+      ctxNew.drawImage(img, 0, 0, imgWidth, imgHeight);
     };
-    img.src = e.target.result;
+
+    img.onerror = function () {
+      alert("Không thể đọc ảnh này.");
+    };
+
+    img.src = event.target.result;
   };
 
   reader.readAsDataURL(file);
 });
 
+// ============================================================
+// MODE BUTTONS
+// ============================================================
+
+function setActiveButton(activeButton) {
+  const buttons = [removeWhiteBG_button, editButton, unSharpMask_button];
+
+  buttons.forEach((btn) => {
+    if (!btn) return;
+
+    btn.style.backgroundColor = "#3498db";
+  });
+
+  if (activeButton) {
+    activeButton.style.backgroundColor = "#093654";
+  }
+}
+
 removeWhiteBG_button.addEventListener("click", function () {
   choose = "removeWhite";
-  removeWhiteBG_button.style.backgroundColor = "#093654";
-  editButton.style.backgroundColor = "#3498db";
-  unSharpMask_button.style.backgroundColor = "#3498db";
+  setActiveButton(removeWhiteBG_button);
 });
 
 editButton.addEventListener("click", function () {
   choose = "edit";
-  removeWhiteBG_button.style.backgroundColor = "#3498db";
-  editButton.style.backgroundColor = "#093654";
-  unSharpMask_button.style.backgroundColor = "#3498db";
+  setActiveButton(editButton);
 });
 
 unSharpMask_button.addEventListener("click", function () {
   choose = "unSharpMask";
-  removeWhiteBG_button.style.backgroundColor = "#3498db";
-  editButton.style.backgroundColor = "#3498db";
-  unSharpMask_button.style.backgroundColor = "#093654";
+  setActiveButton(unSharpMask_button);
 });
 
-// hàm bool chọn khoảng màu để edit
-function isTrueColor(r, g, b, toneRange) {
-  const { r: rRange, g: gRange, b: bRange } = toneRange;
-  return (
-    r >= rRange[0] &&
-    r <= rRange[1] &&
-    g >= gRange[0] &&
-    g <= gRange[1] &&
-    b >= bRange[0] &&
-    b <= bRange[1]
+// ============================================================
+// HELPER
+// ============================================================
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function colorDistanceFromWhite(r, g, b) {
+  // Euclidean distance tới trắng.
+  return Math.sqrt(
+    (255 - r) * (255 - r) + (255 - g) * (255 - g) + (255 - b) * (255 - b),
   );
 }
 
-function removeWhiteHaloSmart() {
-  const imageData = reMoveWhiteBG();
+function luminance(r, g, b) {
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// ============================================================
+// 1. XÓA NỀN TRẮNG
+//
+// QUAN TRỌNG:
+// Không còn xóa tất cả pixel trắng trên toàn ảnh.
+//
+// Chỉ những pixel trắng/gần trắng "nối với mép ảnh"
+// mới được coi là background.
+//
+// Vì vậy:
+//
+// [ TRẮNG NỀN ] -> xóa
+// [ vật thể màu trắng ] -> giữ
+//
+// Đây là vấn đề lớn nhất của code cũ.
+// ============================================================
+
+function removeWhiteBackground() {
+  const width = newCanVas.width;
+  const height = newCanVas.height;
+
+  const imageData = ctxNew.getImageData(0, 0, width, height);
+
   const data = imageData.data;
-  const w = imageData.width;
-  const h = imageData.height;
 
-  // Clone dữ liệu gốc để tham chiếu màu lân cận
-  const original = new Uint8ClampedArray(data);
+  // ----------------------------------------------------------
+  // MASK background
+  //
+  // 0 = chưa xét
+  // 1 = background trắng
+  // ----------------------------------------------------------
 
-  function getPixel(x, y) {
-    const i = (y * w + x) * 4;
-    return [
-      original[i], // r
-      original[i + 1], // g
-      original[i + 2], // b
-      original[i + 3], // a
-    ];
+  const background = new Uint8Array(width * height);
+
+  const queueX = new Int32Array(width * height);
+
+  const queueY = new Int32Array(width * height);
+
+  let head = 0;
+  let tail = 0;
+
+  // ----------------------------------------------------------
+  // THAM SỐ
+  // ----------------------------------------------------------
+
+  // Trắng tinh:
+  // distance = 0
+  //
+  // 50~80:
+  // gần trắng
+  //
+  // Không nên đặt quá cao,
+  // nếu không sẽ ăn màu trắng của vật thể.
+
+  const WHITE_DISTANCE = 55;
+
+  // Nếu pixel quá tối thì chắc chắn không phải nền trắng.
+  const MIN_BRIGHTNESS = 190;
+
+  function isWhiteBackgroundPixel(x, y) {
+    const index = (y * width + x) * 4;
+
+    const r = data[index];
+    const g = data[index + 1];
+    const b = data[index + 2];
+    const a = data[index + 3];
+
+    if (a === 0) {
+      return false;
+    }
+
+    const brightness = luminance(r, g, b);
+
+    if (brightness < MIN_BRIGHTNESS) {
+      return false;
+    }
+
+    const distance = colorDistanceFromWhite(r, g, b);
+
+    return distance <= WHITE_DISTANCE;
   }
 
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = (y * w + x) * 4;
-      let r = original[idx];
-      let g = original[idx + 1];
-      let b = original[idx + 2];
-      let a = original[idx + 3];
+  function addPixel(x, y) {
+    if (x < 0 || x >= width || y < 0 || y >= height) {
+      return;
+    }
 
-      // Độ sáng pixel
-      let brightness = (r + g + b) / 3;
+    const pos = y * width + x;
 
-      // Điều kiện pixel viền trắng mờ
-      if (brightness > 180 && a > 0 && a < 255) {
-        let sumR = 0,
-          sumG = 0,
-          sumB = 0,
-          count = 0;
+    if (background[pos]) {
+      return;
+    }
 
-        // Lấy 8 pixel xung quanh
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            let nx = x + dx,
-              ny = y + dy;
-            if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-              let [nr, ng, nb, na] = getPixel(nx, ny);
-              if (na > 0) {
-                // chỉ lấy pixel có alpha > 0
-                sumR += nr;
-                sumG += ng;
-                sumB += nb;
-                count++;
-              }
-            }
-          }
-        }
+    if (!isWhiteBackgroundPixel(x, y)) {
+      return;
+    }
 
-        if (count > 0) {
-          data[idx] = Math.round(sumR / count); // thay màu bằng trung bình
-          data[idx + 1] = Math.round(sumG / count);
-          data[idx + 2] = Math.round(sumB / count);
-          // giữ nguyên alpha gốc để không mất độ mượt
-        }
+    background[pos] = 1;
+
+    queueX[tail] = x;
+    queueY[tail] = y;
+
+    tail++;
+  }
+
+  // ----------------------------------------------------------
+  // BẮT ĐẦU FLOOD FILL TỪ 4 CẠNH
+  // ----------------------------------------------------------
+
+  for (let x = 0; x < width; x++) {
+    addPixel(x, 0);
+    addPixel(x, height - 1);
+  }
+
+  for (let y = 0; y < height; y++) {
+    addPixel(0, y);
+    addPixel(width - 1, y);
+  }
+
+  // ----------------------------------------------------------
+  // FLOOD FILL
+  //
+  // Chỉ lan qua vùng trắng.
+  // Nếu gặp vật thể thì dừng.
+  // ----------------------------------------------------------
+
+  while (head < tail) {
+    const x = queueX[head];
+    const y = queueY[head];
+
+    head++;
+
+    addPixel(x - 1, y);
+    addPixel(x + 1, y);
+    addPixel(x, y - 1);
+    addPixel(x, y + 1);
+  }
+
+  // ----------------------------------------------------------
+  // XÓA BACKGROUND
+  // ----------------------------------------------------------
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const pos = y * width + x;
+
+      if (!background[pos]) {
+        continue;
       }
+
+      const index = pos * 4;
+
+      data[index + 3] = 0;
     }
   }
+
+  // ----------------------------------------------------------
+  // KHỬ VIỀN TRẮNG
+  //
+  // Chỉ xử lý những pixel sát vùng background.
+  //
+  // Không blur toàn bộ ảnh.
+  // Không làm mờ vật thể.
+  // ----------------------------------------------------------
+
+  decontaminateWhiteEdge(imageData, background);
+
+  // ----------------------------------------------------------
+  // ALPHA EDGE SMOOTH
+  //
+  // Chỉ làm mềm nhẹ những pixel nằm sát background.
+  // ----------------------------------------------------------
+
+  smoothAlphaEdge(imageData, background);
 
   ctxNew.putImageData(imageData, 0, 0);
+
   newCanVas.style.display = "block";
-}
-// xóa nền trắng
-function reMoveWhiteBG() {
-  // Lấy dữ liệu pixel từ canvas
-  const imageData = ctxNew.getImageData(
-    0,
-    0,
-    newCanVas.width,
-    newCanVas.height,
-  );
-  const { data, width, height } = imageData;
-
-  // --- Bước 1: Xóa trắng (tăng độ nhạy) ---
-  for (let i = 0; i < data.length; i += 4) {
-    let r = data[i];
-    let g = data[i + 1];
-    let b = data[i + 2];
-    let alpha = data[i + 3];
-
-    // Tính độ khác biệt với màu trắng
-    let diff = Math.sqrt(
-      Math.pow(255 - r, 2) + Math.pow(255 - g, 2) + Math.pow(255 - b, 2),
-    );
-
-    // Nếu gần trắng thì xóa (ngưỡng có thể chỉnh 80–100)
-    if (diff < 85) {
-      data[i + 3] = 0;
-    }
-  }
-
-  // --- Bước 2: Làm mềm rìa (feather) ---
-  const radius = 1; // bán kính vùng mờ
-  for (let y = 1; y < height - 1; y++) {
-    for (let x = 1; x < width - 1; x++) {
-      const idx = (y * width + x) * 4;
-      const alpha = data[idx + 3];
-
-      if (alpha === 0) continue; // bỏ pixel đã trong suốt
-
-      let totalAlpha = 0;
-      let count = 0;
-
-      // Lấy trung bình alpha 8 pixel xung quanh
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nIdx = ((y + dy) * width + (x + dx)) * 4 + 3;
-          totalAlpha += data[nIdx];
-          count++;
-        }
-      }
-
-      const avgAlpha = totalAlpha / count;
-      data[idx + 3] = Math.min(alpha, avgAlpha);
-    }
-  }
 
   return imageData;
 }
 
-// edit ảnh
+// ============================================================
+// KHỬ ÁM TRẮNG Ở VIỀN
+//
+// Ví dụ:
+//
+// nền trắng
+//     ↓
+// [trắng] [trắng] [xám nhạt] [đỏ]
+//                     ↑
+//                 halo cũ
+//
+// Ta thay màu của pixel biên bằng màu của vùng vật thể,
+// nhưng CHỈ ở vùng rất gần background.
+// ============================================================
+
+function decontaminateWhiteEdge(imageData, background) {
+  const data = imageData.data;
+
+  const width = imageData.width;
+  const height = imageData.height;
+
+  const original = new Uint8ClampedArray(data);
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pos = y * width + x;
+
+      // Chỉ xét pixel còn nhìn thấy.
+      const index = pos * 4;
+
+      const alpha = original[index + 3];
+
+      if (alpha === 0) {
+        continue;
+      }
+
+      // Kiểm tra có background ngay cạnh không.
+      let touchesBackground = false;
+
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) {
+            continue;
+          }
+
+          const nx = x + dx;
+          const ny = y + dy;
+
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+            continue;
+          }
+
+          const nPos = ny * width + nx;
+
+          if (background[nPos]) {
+            touchesBackground = true;
+          }
+        }
+      }
+
+      if (!touchesBackground) {
+        continue;
+      }
+
+      const r = original[index];
+      const g = original[index + 1];
+      const b = original[index + 2];
+
+      // Chỉ khử nếu pixel thực sự có dấu hiệu ám trắng.
+      //
+      // Ví dụ:
+      // 255,255,255 -> chắc chắn trắng
+      // 240,240,240 -> trắng
+      // 220,180,50  -> vàng, không nên sửa
+
+      const minChannel = Math.min(r, g, b);
+
+      const maxChannel = Math.max(r, g, b);
+
+      const spread = maxChannel - minChannel;
+
+      // Nếu 3 kênh gần nhau và rất sáng,
+      // pixel có khả năng bị ám trắng.
+      if (minChannel > 175 && spread < 45) {
+        // Tìm màu của pixel vật thể lân cận.
+        let sumR = 0;
+        let sumG = 0;
+        let sumB = 0;
+        let count = 0;
+
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            if (dx === 0 && dy === 0) {
+              continue;
+            }
+
+            const nx = x + dx;
+            const ny = y + dy;
+
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+              continue;
+            }
+
+            const nPos = ny * width + nx;
+
+            // Không lấy background.
+            if (background[nPos]) {
+              continue;
+            }
+
+            const nIndex = nPos * 4;
+
+            const na = original[nIndex + 3];
+
+            if (na === 0) {
+              continue;
+            }
+
+            const nr = original[nIndex];
+
+            const ng = original[nIndex + 1];
+
+            const nb = original[nIndex + 2];
+
+            // Chỉ lấy màu tương đối có màu,
+            // tránh lấy tiếp pixel trắng.
+            if (Math.max(nr, ng, nb) - Math.min(nr, ng, nb) < 20) {
+              continue;
+            }
+
+            sumR += nr;
+            sumG += ng;
+            sumB += nb;
+
+            count++;
+          }
+        }
+
+        if (count > 0) {
+          const avgR = sumR / count;
+
+          const avgG = sumG / count;
+
+          const avgB = sumB / count;
+
+          // Chỉ sửa một phần,
+          // không overwrite hoàn toàn.
+          data[index] = Math.round(r * 0.25 + avgR * 0.75);
+
+          data[index + 1] = Math.round(g * 0.25 + avgG * 0.75);
+
+          data[index + 2] = Math.round(b * 0.25 + avgB * 0.75);
+        }
+      }
+    }
+  }
+}
+
+// ============================================================
+// LÀM MƯỢT ALPHA Ở BIÊN
+//
+// Không blur màu.
+// Chỉ điều chỉnh alpha nhẹ.
+//
+// Đây là cách tốt hơn việc lấy trung bình alpha
+// của cả 9 pixel như code cũ.
+// ============================================================
+
+function smoothAlphaEdge(imageData, background) {
+  const data = imageData.data;
+
+  const width = imageData.width;
+  const height = imageData.height;
+
+  const original = new Uint8ClampedArray(data);
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const pos = y * width + x;
+
+      const index = pos * 4;
+
+      const alpha = original[index + 3];
+
+      if (alpha === 0) {
+        continue;
+      }
+
+      let bgCount = 0;
+
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) {
+            continue;
+          }
+
+          const nx = x + dx;
+          const ny = y + dy;
+
+          const nPos = ny * width + nx;
+
+          if (background[nPos]) {
+            bgCount++;
+          }
+        }
+      }
+
+      if (bgCount === 0) {
+        continue;
+      }
+
+      // Chỉ giảm alpha nhẹ.
+      //
+      // Không đưa thẳng về 0.
+      // Không tạo viền răng cưa mạnh.
+
+      if (bgCount >= 6) {
+        data[index + 3] = Math.min(alpha, 80);
+      } else if (bgCount >= 3) {
+        data[index + 3] = Math.min(alpha, 150);
+      } else {
+        data[index + 3] = Math.min(alpha, 210);
+      }
+    }
+  }
+}
+
+// ============================================================
+// 2. EDIT ẢNH THƯỜNG
+//
+// Thay kernel:
+//
+// 0 -1  0
+// -1 5 -1
+// 0 -1  0
+//
+// vì sharpen kiểu này khá gắt.
+//
+// Dùng unsharp nhẹ hơn.
+// ============================================================
+
 function editImage() {
+  const width = newCanVas.width;
+  const height = newCanVas.height;
+
+  const source = ctxNew.getImageData(0, 0, width, height);
+
+  const result = applyUnsharpMask(source, 0.55, 1.0, 8);
+
+  ctxNew.putImageData(result, 0, 0);
+
+  newCanVas.style.display = "block";
+
+  return result;
+}
+
+// ============================================================
+// 3. GAUSSIAN BLUR
+//
+// Dùng Gaussian 5x5.
+// Không làm thay đổi alpha.
+// ============================================================
+
+function createGaussianKernel(size = 5, sigma = 1.0) {
+  const kernel = [];
+
+  const half = Math.floor(size / 2);
+
+  let sum = 0;
+
+  for (let y = -half; y <= half; y++) {
+    const row = [];
+
+    for (let x = -half; x <= half; x++) {
+      const value = Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
+
+      row.push(value);
+      sum += value;
+    }
+
+    kernel.push(row);
+  }
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      kernel[y][x] /= sum;
+    }
+  }
+
+  return kernel;
+}
+
+function gaussianBlurImageData(imageData, sigma = 1.0) {
+  const width = imageData.width;
+
+  const height = imageData.height;
+
+  const source = imageData.data;
+
+  const temp = new Uint8ClampedArray(source.length);
+
+  const result = new Uint8ClampedArray(source.length);
+
+  const kernel1D = createGaussianKernel1D(5, sigma);
+
+  const half = 2;
+
+  // ----------------------------------------------------------
+  // PASS 1 - ngang
+  // ----------------------------------------------------------
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+
+      let weightSum = 0;
+
+      for (let k = -half; k <= half; k++) {
+        const sx = clamp(x + k, 0, width - 1);
+
+        const weight = kernel1D[k + half];
+
+        const index = (y * width + sx) * 4;
+
+        r += source[index] * weight;
+        g += source[index + 1] * weight;
+        b += source[index + 2] * weight;
+
+        weightSum += weight;
+      }
+
+      const index = (y * width + x) * 4;
+
+      temp[index] = Math.round(r / weightSum);
+
+      temp[index + 1] = Math.round(g / weightSum);
+
+      temp[index + 2] = Math.round(b / weightSum);
+
+      temp[index + 3] = source[index + 3];
+    }
+  }
+
+  // ----------------------------------------------------------
+  // PASS 2 - dọc
+  // ----------------------------------------------------------
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+
+      let weightSum = 0;
+
+      for (let k = -half; k <= half; k++) {
+        const sy = clamp(y + k, 0, height - 1);
+
+        const weight = kernel1D[k + half];
+
+        const index = (sy * width + x) * 4;
+
+        r += temp[index] * weight;
+        g += temp[index + 1] * weight;
+        b += temp[index + 2] * weight;
+
+        weightSum += weight;
+      }
+
+      const index = (y * width + x) * 4;
+
+      result[index] = Math.round(r / weightSum);
+
+      result[index + 1] = Math.round(g / weightSum);
+
+      result[index + 2] = Math.round(b / weightSum);
+
+      result[index + 3] = source[index + 3];
+    }
+  }
+
+  return new ImageData(result, width, height);
+}
+
+function createGaussianKernel1D(size, sigma) {
+  const kernel = [];
+
+  const half = Math.floor(size / 2);
+
+  let sum = 0;
+
+  for (let i = -half; i <= half; i++) {
+    const value = Math.exp(-(i * i) / (2 * sigma * sigma));
+
+    kernel.push(value);
+    sum += value;
+  }
+
+  return kernel.map((value) => value / sum);
+}
+
+// ============================================================
+// 4. UNSHARP MASK PRO
+//
+// Đây là phần mình viết lại hoàn toàn.
+//
+// Công thức:
+//
+// result = original +
+//          amount * (original - blur)
+//
+// Nhưng thêm:
+//
+// - threshold
+// - bảo vệ vùng phẳng
+// - bảo vệ alpha
+// - không sharpen quá mạnh
+//
+// Tránh tình trạng ảnh "nát", noise và halo.
+// ============================================================
+
+function applyUnsharpMask(imageData, amount = 1.0, sigma = 1.0, threshold = 8) {
+  const width = imageData.width;
+
+  const height = imageData.height;
+
+  const source = imageData.data;
+
+  const blur = gaussianBlurImageData(imageData, sigma);
+
+  const blurData = blur.data;
+
+  const result = new Uint8ClampedArray(source.length);
+
+  for (let i = 0; i < source.length; i += 4) {
+    const alpha = source[i + 3];
+
+    // Alpha giữ nguyên.
+    result[i + 3] = alpha;
+
+    // Pixel trong suốt.
+    if (alpha === 0) {
+      result[i] = 0;
+      result[i + 1] = 0;
+      result[i + 2] = 0;
+
+      continue;
+    }
+
+    for (let c = 0; c < 3; c++) {
+      const original = source[i + c];
+
+      const blurred = blurData[i + c];
+
+      const difference = original - blurred;
+
+      // Nếu khác biệt quá nhỏ,
+      // coi đó là texture/noise và không sharpen.
+      if (Math.abs(difference) < threshold) {
+        result[i + c] = original;
+
+        continue;
+      }
+
+      const sharpened = original + amount * difference;
+
+      result[i + c] = clamp(Math.round(sharpened), 0, 255);
+    }
+  }
+
+  return new ImageData(result, width, height);
+}
+
+// ============================================================
+// PRO SHARPEN
+//
+// Mức mặc định:
+// amount = 1.15
+// sigma = 1.15
+// threshold = 10
+//
+// Đây là mức vừa phải hơn amount = 3 của code cũ.
+// ============================================================
+
+function unsharpMaskPro() {
   const imageData = ctxNew.getImageData(
     0,
     0,
     newCanVas.width,
     newCanVas.height,
   );
-  const data = imageData.data;
 
-  const copy = new Uint8ClampedArray(data);
+  const result = applyUnsharpMask(imageData, 1.15, 1.15, 10);
 
-  const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-  const kernelSize = 3;
-  const half = Math.floor(kernelSize / 2);
+  ctxNew.putImageData(result, 0, 0);
 
-  for (let y = half; y < newHeight - half; y++) {
-    for (let x = half; x < newWidth - half; x++) {
-      let r = 0,
-        g = 0,
-        b = 0;
-
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const px = x + kx;
-          const py = y + ky;
-          const offset = (py * newWidth + px) * 4;
-          const weight = kernel[(ky + half) * kernelSize + (kx + half)];
-
-          r += copy[offset] * weight;
-          g += copy[offset + 1] * weight;
-          b += copy[offset + 2] * weight;
-        }
-      }
-
-      const i = (y * newWidth + x) * 4;
-      data[i] = Math.min(Math.max(r, 0), 255);
-      data[i + 1] = Math.min(Math.max(g, 0), 255);
-      data[i + 2] = Math.min(Math.max(b, 0), 255);
-    }
-  }
-
-  ctxNew.putImageData(imageData, 0, 0);
   newCanVas.style.display = "block";
+
+  return result;
 }
 
-// hàm blur radius làm mờ ảnh
-/*function blurRadius() {
-  const imageData = newCanVas.getImageData(
-    offSetX,
-    offSetY,
-    newWidth,
-    newHeight
-  );
-  const data = imageData.data;
+// ============================================================
+// DOWNLOAD
+// ============================================================
 
-  const copy = new Uint8ClampedArray(data);
-
-  for (let y = 1; y < newHeight - 1; y++) {
-    for (let x = 1; x < newWidth - 1; x++) {
-      let r = 0,
-        g = 0,
-        b = 0;
-
-      for (let ky = -1; ky <= 1; ky++) {
-        for (let kx = -1; kx <= 1; kx++) {
-          const px = x + kx;
-          const py = y + ky;
-          const offset = (py * newWidth + px) * 4;
-
-          r += copy[offset];
-          g += copy[offset + 1];
-          b += copy[offset + 2];
-        }
-      }
-
-      const i = (y * newWidth + x) * 4;
-      data[i] = r / 9;
-      data[i + 1] = g / 9;
-      data[i + 2] = b / 9;
-    }
-  }
-  ctxNew.putImageData(imageData, 0, 0);
-  newCanVas.style.display = "block";
-}*/
-
-// hàm tạo kernel gaussian 3x3
-function createGaussianKernel(size = 5, sigma = 1.5) {
-  const kernel = [];
-  const half = Math.floor(size / 2);
-  let sum = 0;
-
-  for (let y = -half; y <= half; y++) {
-    for (let x = -half; x <= half; x++) {
-      const value =
-        (1 / (2 * Math.PI * sigma * sigma)) *
-        Math.exp(-(x * x + y * y) / (2 * sigma * sigma));
-      kernel.push(value);
-      sum += value;
-    }
-  }
-
-  // Chuẩn hóa kernel sao cho tổng bằng 1
-  return kernel.map((v) => v / sum);
-}
-
-// hàm làm mờ bằng gaussian
-// Sửa gaussianBlur
-function gaussianBlur() {
-  const imageData = ctxNew.getImageData(
-    Math.floor(offSetX),
-    Math.floor(offSetY),
-    Math.floor(newWidth),
-    Math.floor(newHeight),
-  );
-  const data = imageData.data;
-
-  const half = Math.floor(3 / 2);
-  const copy = new Uint8ClampedArray(data);
-  const kernel = createGaussianKernel(3, 1);
-
-  for (let y = half; y < newHeight - half; y++) {
-    for (let x = half; x < newWidth - half; x++) {
-      let r = 0,
-        g = 0,
-        b = 0;
-
-      for (let ky = -half; ky <= half; ky++) {
-        for (let kx = -half; kx <= half; kx++) {
-          const px = x + kx;
-          const py = y + ky;
-          const offset = (py * newWidth + px) * 4; // Dùng newWidth
-          const weight = kernel[(ky + half) * 3 + (kx + half)];
-
-          r += copy[offset] * weight;
-          g += copy[offset + 1] * weight;
-          b += copy[offset + 2] * weight;
-        }
-      }
-
-      const i = (y * newWidth + x) * 4; // sửa từ width -> newWidth
-      data[i] = Math.round(r);
-      data[i + 1] = Math.round(g);
-      data[i + 2] = Math.round(b);
-      data[i + 3] = copy[i + 3];
-    }
-  }
-  ctxNew.putImageData(imageData, Math.floor(offSetX), Math.floor(offSetY));
-  return ctxNew.getImageData(
-    Math.floor(offSetX),
-    Math.floor(offSetY),
-    Math.floor(newWidth),
-    Math.floor(newHeight),
-  );
-}
-
-// hàm làm sắc ảnh bằng unsharpmask
-function unsharpMask(amount = 1) {
-  const imageData = ctx.getImageData(
-    Math.floor(offSetX),
-    Math.floor(offSetY),
-    Math.floor(newWidth),
-    Math.floor(newHeight),
-  );
-  const data = imageData.data;
-  const blur = gaussianBlur();
-  const blurData = blur.data;
-
-  const result = new Uint8ClampedArray(data.length);
-
-  for (let i = 0; i < data.length; i += 4) {
-    for (let c = 0; c < 3; c++) {
-      let value = data[i + c] + amount * (data[i + c] - blurData[i + c]);
-      result[i + c] = Math.min(Math.max(Math.round(value), 0), 255);
-    }
-    result[i + 3] = data[i + 3];
-  }
-
-  const sharpenedImageData = new ImageData(
-    result,
-    Math.floor(newWidth),
-    Math.floor(newHeight),
-  );
-  ctxNew.putImageData(
-    sharpenedImageData,
-    Math.floor(offSetX),
-    Math.floor(offSetY),
-  );
-  newCanVas.style.display = "block";
-}
-
-// Hàm downLoadLink 1
-/*function enableDownloadLink() {
+function enableDownloadLink(filename = "edited-image.png") {
+  // PNG để giữ alpha.
   const dataURL = newCanVas.toDataURL("image/png");
-  downLoadLink.href = dataURL;
-  downLoadLink.download = "removed-bg.png";
-  downLoadLink.style.display = "inline";
-}*/
 
-// Hàm downLoadLink 2
-function enableDownloadLink() {
-  // newCanVas đã có kích thước đúng với ảnh gốc
-  const dataURL = newCanVas.toDataURL("image/png");
   downLoadLink.href = dataURL;
-  downLoadLink.download = "removed-bg.png";
+
+  downLoadLink.download = filename;
+
   downLoadLink.style.display = "inline";
 }
 
-// Bắt đầu chỉnh ảnh
+// ============================================================
+// START
+// ============================================================
+
 startButton.addEventListener("click", function () {
-  if (!imageResult || choose == null) return;
+  if (!imageResult) {
+    alert("Vui lòng chọn ảnh trước.");
+    return;
+  }
 
-  // Xóa canvas 2 trước
+  if (!choose) {
+    alert("Vui lòng chọn chức năng.");
+    return;
+  }
+
+  // --------------------------------------------------------
+  // QUAN TRỌNG:
+  // Mỗi lần xử lý đều lấy LẠI ảnh gốc.
+  //
+  // Không sharpen trên kết quả cũ.
+  // Không remove background trên kết quả cũ.
+  // --------------------------------------------------------
+
   ctxNew.clearRect(0, 0, newCanVas.width, newCanVas.height);
 
-  // Vẽ ảnh gốc lên canvas 2 ở góc (0,0) — KHÔNG offset
+  ctxNew.imageSmoothingEnabled = false;
+
   ctxNew.drawImage(imageResult, 0, 0, newCanVas.width, newCanVas.height);
 
-  if (choose == "removeWhite") {
-    removeWhiteHaloSmart();
-  } else if (choose == "edit") {
-    editImage();
-  } else if (choose == "unSharpMask") {
-    unsharpMask(3);
+  let filename = "edited-image.png";
+
+  // --------------------------------------------------------
+  // REMOVE WHITE BG
+  // --------------------------------------------------------
+
+  if (choose === "removeWhite") {
+    removeWhiteBackground();
+
+    filename = "removed-background.png";
   }
 
-  // Bật link tải sau khi xử lý xong
-  enableDownloadLink();
+  // --------------------------------------------------------
+  // EDIT
+  // --------------------------------------------------------
+  else if (choose === "edit") {
+    editImage();
+
+    filename = "edited-image.png";
+  }
+
+  // --------------------------------------------------------
+  // PRO SHARPEN
+  // --------------------------------------------------------
+  else if (choose === "unSharpMask") {
+    unsharpMaskPro();
+
+    filename = "sharpened-pro.png";
+  }
+
+  enableDownloadLink(filename);
+});
+
+// ============================================================
+// RESET PREVIEW KHI RESIZE
+// ============================================================
+
+window.addEventListener("resize", function () {
+  if (!imageResult) {
+    return;
+  }
+
+  const maxDisplaySize = Math.min(window.innerWidth * 0.6, 700);
+
+  displayScale = Math.min(
+    maxDisplaySize / imgWidth,
+    maxDisplaySize / imgHeight,
+    1,
+  );
+
+  canvas.width = Math.max(1, Math.round(imgWidth * displayScale));
+
+  canvas.height = Math.max(1, Math.round(imgHeight * displayScale));
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.imageSmoothingEnabled = true;
+
+  ctx.imageSmoothingQuality = "high";
+
+  ctx.drawImage(imageResult, 0, 0, canvas.width, canvas.height);
 });

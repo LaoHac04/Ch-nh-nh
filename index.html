@@ -4,30 +4,116 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="style.css" />
-    <title>Chỉnh ảnh</title>
+    <title>Chỉnh ảnh - Game Asset Tool</title>
   </head>
   <body>
-    <input type="file" id="imageInput" accept="image/*" />
-    <br /><br />
-    <canvas id="canvas1" style="display: none"></canvas>
-    <canvas id="canvas2" style="display: none"></canvas>
-    <button id="removeWhiteBG">Xóa nền trắng</button>
-    <button id="edit">Làm nét ảnh</button>
-    <button id="unSharpMask">Làm nét ảnh vip</button>
-    <button id="start">start</button>
-    <img id="resultImage" style="max-width: 400px; display: none" /><br /><br />
-    <a id="downLoadLink" style="display: none" download="transparent.png"
-      >Tải ảnh PNG có nền trong suốt</a
-    >
-    <div class="form-container">
-      <h3>Nhập tên của bạn để hệ thống lưu trữ:</h3>
-      <input type="text" id="username" placeholder="Nhập tên tại đây..." />
-      <button id="submit-btn">Gửi lên Server</button>
-      <button id="reset-btn">Reset</button>
+    <main class="app">
+      <header class="app-header">
+        <h1>Chỉnh ảnh</h1>
+        <p>Tách nền và xử lý asset game</p>
+      </header>
 
-      <!-- Nơi hiển thị kết quả động từ Server trả về -->
-      <p id="response-message" style="color: green; font-weight: bold"></p>
-    </div>
+      <section class="toolbar">
+        <label class="file-picker">
+          <span>Chọn ảnh</span>
+          <input type="file" id="imageInput" accept="image/*" />
+        </label>
+        <span id="fileName" class="file-name">Chưa chọn ảnh</span>
+      </section>
+
+      <section id="backgroundPanel" class="background-panel" hidden>
+        <div class="panel-title">Tách nền Asset Game</div>
+        <div class="panel-subtitle">
+          Chọn đúng màu nền. Công cụ sẽ xóa màu đó trên toàn ảnh, kể cả vùng nền nằm bên trong vật thể.
+        </div>
+
+        <div class="color-row">
+          <div id="selectedColorSwatch" class="selected-color-swatch" title="Màu nền đang chọn"></div>
+          <input id="bgColorPicker" type="color" value="#FFFFFF" title="Chọn màu nền" />
+          <input id="bgHex" type="text" value="#FFFFFF" maxlength="7" autocomplete="off" spellcheck="false" />
+          <button id="pickColorButton" class="secondary-button" type="button">🎯 Hút màu từ ảnh</button>
+        </div>
+
+        <div class="preset-row" aria-label="Màu nền mẫu">
+          <button class="color-preset" type="button" data-color="#FFFFFF" style="--swatch:#ffffff" title="Trắng"></button>
+          <button class="color-preset" type="button" data-color="#000000" style="--swatch:#000000" title="Đen"></button>
+          <button class="color-preset" type="button" data-color="#FF0000" style="--swatch:#ff0000" title="Đỏ"></button>
+          <button class="color-preset" type="button" data-color="#00FF00" style="--swatch:#00ff00" title="Xanh lá"></button>
+          <button class="color-preset" type="button" data-color="#0000FF" style="--swatch:#0000ff" title="Xanh dương"></button>
+          <button class="color-preset" type="button" data-color="#FFFF00" style="--swatch:#ffff00" title="Vàng"></button>
+          <button class="color-preset" type="button" data-color="#00FFFF" style="--swatch:#00ffff" title="Cyan"></button>
+          <button class="color-preset" type="button" data-color="#FF00FF" style="--swatch:#ff00ff" title="Magenta"></button>
+        </div>
+
+        <div class="control-grid">
+          <label class="range-control">
+            <span><b>Độ lệch màu</b><output id="toleranceValue">10</output></span>
+            <input id="tolerance" type="range" min="0" max="80" value="10" />
+          </label>
+
+          <label class="range-control">
+            <span><b>Vùng chuyển tiếp mép</b><output id="edgeValue">18</output></span>
+            <input id="edgeSoftness" type="range" min="1" max="40" value="18" />
+          </label>
+
+          <label class="range-control">
+            <span><b>Khử màu viền</b><output id="decontaminateValue">90%</output></span>
+            <input id="decontaminate" type="range" min="0" max="100" value="90" />
+          </label>
+
+          <label class="range-control">
+            <span><b>Thu mép</b><output id="contractValue">0 px</output></span>
+            <input id="contract" type="range" min="0" max="2" value="0" />
+          </label>
+        </div>
+
+        <div class="panel-tip">
+          <b>Gợi ý:</b> logo/chữ trên nền phẳng thường dùng Độ lệch màu 5–15,
+          Khử màu viền 80–100%. Chỉ tăng Thu mép khi vẫn còn halo.
+        </div>
+      </section>
+
+      <section class="preview-area">
+        <div class="preview-card">
+          <div class="preview-label">Ảnh gốc</div>
+          <div id="sourcePreview" class="canvas-wrap source-wrap">
+            <canvas id="canvas1"></canvas>
+            <div id="sourceEmpty" class="empty-state">Chọn ảnh để bắt đầu</div>
+          </div>
+        </div>
+
+        <div class="preview-card output-card">
+          <div class="preview-label">Kết quả PNG trong suốt</div>
+          <div id="outputPreview" class="canvas-wrap checkerboard" hidden>
+            <canvas id="canvas2"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <section class="action-row">
+        <button id="removeWhiteBG" type="button">Xóa nền theo màu</button>
+        <button id="edit" type="button">Làm nét ảnh</button>
+        <button id="unSharpMask" type="button">Làm nét ảnh VIP</button>
+        <button id="start" type="button">Xử lý</button>
+      </section>
+
+      <a id="downLoadLink" class="download-link" download="transparent.png">
+        ⬇ Tải PNG trong suốt
+      </a>
+
+      <img id="resultImage" alt="Kết quả" />
+
+      <section class="form-container">
+        <h3>Nhập tên của bạn để hệ thống lưu trữ:</h3>
+        <div class="name-row">
+          <input type="text" id="username" placeholder="Nhập tên tại đây..." />
+          <button id="submit-btn" type="button">Gửi lên Server</button>
+          <button id="reset-btn" type="button">Reset</button>
+        </div>
+        <p id="response-message"></p>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
   </body>
-  <script src="script.js"></script>
 </html>
